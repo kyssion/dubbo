@@ -40,20 +40,20 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.apache.dubbo.common.constants.CommonConstants.HOST_KEY;
-import static org.apache.dubbo.common.constants.CommonConstants.PORT_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.ANYHOST_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.ANYHOST_VALUE;
 import static org.apache.dubbo.common.constants.CommonConstants.COMMA_SPLIT_PATTERN;
 import static org.apache.dubbo.common.constants.CommonConstants.DEFAULT_KEY_PREFIX;
 import static org.apache.dubbo.common.constants.CommonConstants.GROUP_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.HOST_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.INTERFACE_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.LOCALHOST_KEY;
-import static org.apache.dubbo.common.constants.CommonConstants.PATH_KEY;
-import static org.apache.dubbo.common.constants.CommonConstants.PROTOCOL_KEY;
-import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.PASSWORD_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.PATH_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.PORT_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.PROTOCOL_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.USERNAME_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
 
 /**
  * URL - Uniform Resource Locator (Immutable, ThreadSafe)
@@ -453,7 +453,7 @@ class URL implements Serializable {
     }
 
     static String appendDefaultPort(String address, int defaultPort) {
-        if (address != null && address.length() > 0 && defaultPort > 0) {
+        if (StringUtils.isNotEmpty(address) && defaultPort > 0) {
             int i = address.indexOf(':');
             if (i < 0) {
                 return address + ":" + defaultPort;
@@ -508,7 +508,7 @@ class URL implements Serializable {
 
     public List<String> getParameter(String key, List<String> defaultValue) {
         String value = getParameter(key);
-        if (value == null || value.length() == 0) {
+        if (StringUtils.isEmpty(value)) {
             return defaultValue;
         }
         String[] strArray = COMMA_SPLIT_PATTERN.split(value);
@@ -872,7 +872,7 @@ class URL implements Serializable {
             return false;
         }
         String value = getMethodParameter(method, key);
-        return value != null && value.length() > 0;
+        return StringUtils.isNotEmpty(value);
     }
 
     public boolean isLocalHost() {
@@ -1167,7 +1167,7 @@ class URL implements Serializable {
             List<String> includes = (ArrayUtils.isEmpty(parameters) ? null : Arrays.asList(parameters));
             boolean first = true;
             for (Map.Entry<String, String> entry : new TreeMap<>(getParameters()).entrySet()) {
-                if (entry.getKey() != null && entry.getKey().length() > 0
+                if (StringUtils.isNotEmpty(entry.getKey())
                         && (includes == null || includes.contains(entry.getKey()))) {
                     if (first) {
                         if (concat) {
@@ -1197,7 +1197,7 @@ class URL implements Serializable {
         }
         if (appendUser && StringUtils.isNotEmpty(username)) {
             buf.append(username);
-            if (password != null && password.length() > 0) {
+            if (StringUtils.isNotEmpty(password)) {
                 buf.append(":");
                 buf.append(password);
             }
@@ -1209,7 +1209,7 @@ class URL implements Serializable {
         } else {
             host = getHost();
         }
-        if (host != null && host.length() > 0) {
+        if (StringUtils.isNotEmpty(host)) {
             buf.append(host);
             if (port > 0) {
                 buf.append(":");
@@ -1222,7 +1222,7 @@ class URL implements Serializable {
         } else {
             path = getPath();
         }
-        if (path != null && path.length() > 0) {
+        if (StringUtils.isNotEmpty(path)) {
             buf.append("/");
             buf.append(path);
         }
@@ -1246,14 +1246,27 @@ class URL implements Serializable {
     }
 
     /**
-     * The format is '{group}*{interfaceName}:{version}'
-     *
+     * The format is "{interface}:[version]:[group]"
      * @return
      */
-    public String getEncodedServiceKey() {
-        String serviceKey = this.getServiceKey();
-        serviceKey = serviceKey.replaceFirst("/", "*");
-        return serviceKey;
+    public String getColonSeparatedKey() {
+        StringBuilder serviceNameBuilder = new StringBuilder();
+        append(serviceNameBuilder, INTERFACE_KEY, true);
+        append(serviceNameBuilder, VERSION_KEY, false);
+        append(serviceNameBuilder, GROUP_KEY, false);
+        return serviceNameBuilder.toString();
+    }
+
+    private void append(StringBuilder target, String parameterName, boolean first) {
+        String parameterValue = this.getParameter(parameterName);
+        if (!StringUtils.isBlank(parameterValue)) {
+            if (!first) {
+                target.append(":");
+            }
+            target.append(parameterValue);
+        } else {
+            target.append(":");
+        }
     }
 
     /**
@@ -1282,11 +1295,11 @@ class URL implements Serializable {
 
     public static String buildKey(String path, String group, String version) {
         StringBuilder buf = new StringBuilder();
-        if (group != null && group.length() > 0) {
+        if (StringUtils.isNotEmpty(group)) {
             buf.append(group).append("/");
         }
         buf.append(path);
-        if (version != null && version.length() > 0) {
+        if (StringUtils.isNotEmpty(version)) {
             buf.append(":").append(version);
         }
         return buf.toString();
@@ -1435,11 +1448,7 @@ class URL implements Serializable {
             return false;
         }
         URL other = (URL) obj;
-        if (host == null) {
-            if (other.host != null) {
-                return false;
-            }
-        } else if (!host.equals(other.host)) {
+        if(!StringUtils.isEquals(host, other.host)) {
             return false;
         }
         if (parameters == null) {
@@ -1449,35 +1458,19 @@ class URL implements Serializable {
         } else if (!parameters.equals(other.parameters)) {
             return false;
         }
-        if (password == null) {
-            if (other.password != null) {
-                return false;
-            }
-        } else if (!password.equals(other.password)) {
+        if(!StringUtils.isEquals(password, other.password)) {
             return false;
         }
-        if (path == null) {
-            if (other.path != null) {
-                return false;
-            }
-        } else if (!path.equals(other.path)) {
+        if(!StringUtils.isEquals(path, other.path)) {
             return false;
         }
         if (port != other.port) {
             return false;
         }
-        if (protocol == null) {
-            if (other.protocol != null) {
-                return false;
-            }
-        } else if (!protocol.equals(other.protocol)) {
+        if(!StringUtils.isEquals(protocol, other.protocol)) {
             return false;
         }
-        if (username == null) {
-            if (other.username != null) {
-                return false;
-            }
-        } else if (!username.equals(other.username)) {
+        if(!StringUtils.isEquals(username, other.username)) {
             return false;
         }
         return true;
