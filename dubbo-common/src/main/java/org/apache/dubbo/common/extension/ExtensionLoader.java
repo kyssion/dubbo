@@ -98,19 +98,21 @@ public class ExtensionLoader<T> {
 
     private final Map<String, Object> cachedActivates = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Holder<Object>> cachedInstances = new ConcurrentHashMap<>();
-    private final Holder<Object> cachedAdaptiveInstance = new Holder<>();
-    private volatile Class<?> cachedAdaptiveClass = null;
-    private String cachedDefaultName;
-    private volatile Throwable createAdaptiveInstanceError;
+    private final Holder<Object> cachedAdaptiveInstance = new Holder<>();//缓存自适应实例
+    private volatile Class<?> cachedAdaptiveClass = null;// 自适应缓存类型
+    private String cachedDefaultName;//缓存默认名称
+    private volatile Throwable createAdaptiveInstanceError;//创建自适应缓存异常信息
 
-    private Set<Class<?>> cachedWrapperClasses;
+    private Set<Class<?>> cachedWrapperClasses;// 缓存包转类
 
     private Map<String, IllegalStateException> exceptions = new ConcurrentHashMap<>();
 
+    //dubbo 加载策略 LoadingStrategy貌似现在没有怎么使用
     private static LoadingStrategy DUBBO_INTERNAL_STRATEGY =  () -> DUBBO_INTERNAL_DIRECTORY;
     private static LoadingStrategy DUBBO_STRATEGY = () -> DUBBO_DIRECTORY;
     private static LoadingStrategy SERVICES_STRATEGY = () -> SERVICES_DIRECTORY;
 
+    //加载策略集合
     private static LoadingStrategy[] strategies = new LoadingStrategy[] { DUBBO_INTERNAL_STRATEGY, DUBBO_STRATEGY, SERVICES_STRATEGY };
 
     public static void setLoadingStrategies(LoadingStrategy... strategies) {
@@ -768,7 +770,8 @@ public class ExtensionLoader<T> {
         try {
             Enumeration<java.net.URL> urls = null;
             ClassLoader classLoader = findClassLoader();
-            
+
+            // 这里永远是false
             // try to load from ExtensionLoader's ClassLoader first
             if (extensionLoaderClassLoaderFirst) {
                 ClassLoader extensionLoaderClassLoader = ExtensionLoader.class.getClassLoader();
