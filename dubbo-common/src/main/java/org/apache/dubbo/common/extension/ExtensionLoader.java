@@ -54,7 +54,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.DEFAULT_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.REMOVE_VALUE_PREFIX;
 
 /**
- *
+ * 这个包在初始化的时候被大量的使用 ,
  * {@link org.apache.dubbo.rpc.model.ApplicationModel}, {@code DubboBootstrap} and this class are
  * at present designed to be singleton or static (by itself totally static or uses some static fields).
  * So the instances returned from them are of process or classloader scope. If you want to support
@@ -84,6 +84,7 @@ public class ExtensionLoader<T> {
 
     private static final Pattern NAME_SEPARATOR = Pattern.compile("\\s*[,]+\\s*");
 
+    //缓存所有已经加载的ExtensiionLoader的扩展器
     private static final ConcurrentMap<Class<?>, ExtensionLoader<?>> EXTENSION_LOADERS = new ConcurrentHashMap<>();
 
     private static final ConcurrentMap<Class<?>, Object> EXTENSION_INSTANCES = new ConcurrentHashMap<>();
@@ -94,14 +95,14 @@ public class ExtensionLoader<T> {
 
     private final ConcurrentMap<Class<?>, String> cachedNames = new ConcurrentHashMap<>();
 
-    private final Holder<Map<String, Class<?>>> cachedClasses = new Holder<>();
+    private final Holder<Map<String, Class<?>>> cachedClasses = new Holder<>(); // 这个地方注意一下 ,  它底层用voltie这个之后要研究一下
 
     private final Map<String, Object> cachedActivates = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Holder<Object>> cachedInstances = new ConcurrentHashMap<>();
-    private final Holder<Object> cachedAdaptiveInstance = new Holder<>();//缓存自适应实例
-    private volatile Class<?> cachedAdaptiveClass = null;// 自适应缓存类型
-    private String cachedDefaultName;//缓存默认名称
-    private volatile Throwable createAdaptiveInstanceError;//创建自适应缓存异常信息
+    private final Holder<Object> cachedAdaptiveInstance = new Holder<>();//缓存自适应实例   每一个ExtensionLoader都会默认的缓存自己的属性
+    private volatile Class<?> cachedAdaptiveClass = null;// 自适应缓存类型 标记自己缓存的实例的类型
+    private String cachedDefaultName;//缓存默认名称 这个是从SPI注解中获取的名称 注意不能使用, 号分割成多个
+    private volatile Throwable createAdaptiveInstanceError;//创建自适应缓存异常信息  比如创建新的缓存的时候将会出现一些问题error
 
     private Set<Class<?>> cachedWrapperClasses;// 缓存包转类
 
@@ -121,6 +122,7 @@ public class ExtensionLoader<T> {
 
     private ExtensionLoader(Class<?> type) {
         this.type = type;
+        //注意这里默认使用了ExtensionFactory作为默认的ExtensionLoader加载器
         objectFactory = (type == ExtensionFactory.class ? null : ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());
     }
 
@@ -140,9 +142,10 @@ public class ExtensionLoader<T> {
             throw new IllegalArgumentException("Extension type (" + type +
                     ") is not an extension, because it is NOT annotated with @" + SPI.class.getSimpleName() + "!");
         }
-
+        //获取扩展
         ExtensionLoader<T> loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         if (loader == null) {
+            //创建并且赋值 扩展加载器
             EXTENSION_LOADERS.putIfAbsent(type, new ExtensionLoader<T>(type));
             loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         }
@@ -544,8 +547,10 @@ public class ExtensionLoader<T> {
         }
     }
 
+    //dubbo自己内部实现了一种扩展方法,来加载扩展类
     @SuppressWarnings("unchecked")
     public T getAdaptiveExtension() {
+        //获取缓存的自适应实例 ()
         Object instance = cachedAdaptiveInstance.get();
         if (instance == null) {
             if (createAdaptiveInstanceError != null) {
@@ -555,6 +560,7 @@ public class ExtensionLoader<T> {
             }
 
             synchronized (cachedAdaptiveInstance) {
+                //再次获取, 预防兑现线程征用的时候出现的问题
                 instance = cachedAdaptiveInstance.get();
                 if (instance == null) {
                     try {
@@ -724,6 +730,7 @@ public class ExtensionLoader<T> {
 
     /**
      * synchronized in getExtensionClasses
+     * 这里通过使用 默认的接口类型或者spi类型(type的类型和cachedAdaptiveClass 区别) 拿到所有的扩展类列表
      * */
     private Map<String, Class<?>> loadExtensionClasses() {
         cacheDefaultExtensionName();
@@ -970,6 +977,10 @@ public class ExtensionLoader<T> {
         return name.toLowerCase();
     }
 
+    /**
+     * 创建扩展实例这个逻辑非常特殊 注意
+     * @return
+     */
     @SuppressWarnings("unchecked")
     private T createAdaptiveExtension() {
         try {
@@ -979,6 +990,10 @@ public class ExtensionLoader<T> {
         }
     }
 
+    /**
+     * 获取当前需要进行 动态加载的缓存实例
+     * @return
+     */
     private Class<?> getAdaptiveExtensionClass() {
         getExtensionClasses();
         if (cachedAdaptiveClass != null) {
@@ -987,7 +1002,9 @@ public class ExtensionLoader<T> {
         return cachedAdaptiveClass = createAdaptiveExtensionClass();
     }
 
+    //创建自己的自适应类
     private Class<?> createAdaptiveExtensionClass() {
+        //这里为什么用代码生成器来实现呢 type 是默认的接口 ,  通过一些逻辑动态的生成代码 , 以后再看
         String code = new AdaptiveClassCodeGenerator(type, cachedDefaultName).generate();
         ClassLoader classLoader = findClassLoader();
         org.apache.dubbo.common.compiler.Compiler compiler = ExtensionLoader.getExtensionLoader(org.apache.dubbo.common.compiler.Compiler.class).getAdaptiveExtension();
