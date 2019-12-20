@@ -747,6 +747,7 @@ public class ExtensionLoader<T> {
 
     /**
      * extract and cache default extension name if exists
+     * 初始化这个extensionLoader 类用的,用来设置默认名称
      */
     private void cacheDefaultExtensionName() {
         final SPI defaultAnnotation = type.getAnnotation(SPI.class);
@@ -771,6 +772,14 @@ public class ExtensionLoader<T> {
         loadDirectory(extensionClasses, dir, type, false);
     }
 
+    /**
+     * 使用自定义的扩展加载扩展类用的
+     * @param extensionClasses
+     * @param dir
+     * @param type
+     * @param extensionLoaderClassLoaderFirst
+     * @param excludedPackages
+     */
     private void loadDirectory(Map<String, Class<?>> extensionClasses, String dir, String type,
                                boolean extensionLoaderClassLoaderFirst, String... excludedPackages) {
         String fileName = dir + type;
@@ -1002,7 +1011,7 @@ public class ExtensionLoader<T> {
         return cachedAdaptiveClass = createAdaptiveExtensionClass();
     }
 
-    //创建自己的自适应类
+    //创建自己的自适应类 其实是传入的 扩展类的外层包装,用来校验包装类是否是正常的
     private Class<?> createAdaptiveExtensionClass() {
         //这里为什么用代码生成器来实现呢 type 是默认的接口 ,  通过一些逻辑动态的生成代码 , 以后再看
         String code = new AdaptiveClassCodeGenerator(type, cachedDefaultName).generate();
