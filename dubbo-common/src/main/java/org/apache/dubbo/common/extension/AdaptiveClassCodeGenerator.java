@@ -193,31 +193,36 @@ public class AdaptiveClassCodeGenerator {
     }
 
     /**
+     * 方法的代码自动生成逻辑,如果这个方法是使用Adaptive进行标记的,那么就需要进行自动化创建处理
      * generate method content
      */
     private String generateMethodContent(Method method) {
         Adaptive adaptiveAnnotation = method.getAnnotation(Adaptive.class);
         StringBuilder code = new StringBuilder(512);
         if (adaptiveAnnotation == null) {
+            //如果没有使用adaptive进行标价的话, 就直接抛出异常
             return generateUnsupported(method);
         } else {
+            //如果方法有url类型需要进行特殊化的处理
             int urlTypeIndex = getUrlTypeIndex(method);
-
             // found parameter in URL type
             if (urlTypeIndex != -1) {
-                // Null Point check
+                // Null Point check 存在url参数进行参数化校验
                 code.append(generateUrlNullCheck(urlTypeIndex));
             } else {
-                // did not find parameter in URL type
+                // did not find parameter in URL type 对所有方法参数中的getter方法进行处理,增加错误校验机制,不可为空
                 code.append(generateUrlAssignmentIndirectly(method));
             }
 
             String[] value = getMethodAdaptiveValue(adaptiveAnnotation);
 
+            //记录是否存在Invocation 类型的参数
             boolean hasInvocation = hasInvocationArgument(method);
 
+            //校验如果有Invocation类型的参数
             code.append(generateInvocationArgumentNullCheck(method));
 
+            //TODO kkk 貌似是对注解中的参数进行了特殊的处理
             code.append(generateExtNameAssignment(value, hasInvocation));
             // check extName == null?
             code.append(generateExtNameNullCheck(value));
@@ -328,6 +333,7 @@ public class AdaptiveClassCodeGenerator {
         String[] value = adaptiveAnnotation.value();
         // value is not set, use the value generated from class name as the key
         if (value.length == 0) {
+            //这个很有意思,他将驼峰写法UserNameItem 转化成 user.name.item这种形式
             String splitName = StringUtils.camelToSplitName(type.getSimpleName(), ".");
             value = new String[]{splitName};
         }
