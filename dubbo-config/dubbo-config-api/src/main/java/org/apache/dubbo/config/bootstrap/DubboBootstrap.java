@@ -691,12 +691,14 @@ public class DubboBootstrap extends GenericEventListener {
      * Start the bootstrap
      */
     public DubboBootstrap start() {
+        //cas start过程
         if (started.compareAndSet(false, true)) {
+            //将刚才set的各种参数 导入的dubbo中
             initialize();
             if (logger.isInfoEnabled()) {
                 logger.info(NAME + " is starting...");
             }
-            // 1. export Dubbo Services
+            // 1. export Dubbo Services  暴露服务
             exportServices();
 
             // Not only provider register

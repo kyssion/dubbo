@@ -100,41 +100,52 @@ import static org.apache.dubbo.rpc.Constants.SCOPE_REMOTE;
 import static org.apache.dubbo.rpc.Constants.TOKEN_KEY;
 import static org.apache.dubbo.rpc.cluster.Constants.EXPORT_KEY;
 
+/**
+ * dubbo的一个包装类
+ * @param <T>
+ */
 public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
     public static final Logger logger = LoggerFactory.getLogger(ServiceConfig.class);
 
     /**
+     * 随机端口缓存
      * A random port cache, the different protocols who has no port specified have different random port
      */
     private static final Map<String, Integer> RANDOM_PORT_MAP = new HashMap<String, Integer>();
 
     /**
+     * 延迟暴露
      * A delayed exposure service timer
      */
     private static final ScheduledExecutorService DELAY_EXPORT_EXECUTOR = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("DubboServiceDelayExporter", true));
-
+    //获取扩展加载器 针对spi 这里转了好几圈，用了很多东西，注意proto的初始化过程 ， AdaptiveExtensionFactory 依赖 SpiExtensionFactory
     private static final Protocol protocol = ExtensionLoader.getExtensionLoader(Protocol.class).getAdaptiveExtension();
 
     /**
      * A {@link ProxyFactory} implementation that will generate a exported service proxy,the JavassistProxyFactory is its
+     * 生成导出服务代理的默认实现  在研究一下是干嘛用的
      * default implementation
      */
     private static final ProxyFactory PROXY_FACTORY = ExtensionLoader.getExtensionLoader(ProxyFactory.class).getAdaptiveExtension();
 
     /**
+     * 原子性操作，判断是否暴露
      * Whether the provider has been exported
      */
     private transient volatile boolean exported;
 
     /**
+     * 表示是否导出
      * The flag whether a service has unexported ,if the method unexported is invoked, the value is true
      */
     private transient volatile boolean unexported;
 
+    // bootstrap外部引用
     private DubboBootstrap bootstrap;
 
     /**
+     * 暴露的服务列表
      * The exported services
      */
     private final List<Exporter<?>> exporters = new ArrayList<Exporter<?>>();
@@ -156,6 +167,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         return unexported;
     }
 
+    //服务取消暴露
     public void unexport() {
         if (!exported) {
             return;
@@ -175,10 +187,11 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         }
         unexported = true;
 
-        // dispatch a ServiceConfigUnExportedEvent since 2.7.4
+        // dispatch a ServiceConfigUnExportedEvent since 2.7.4 传入的类其实就是一个事件
         dispatch(new ServiceConfigUnexportedEvent(this));
     }
 
+    //服务开始暴露
     public synchronized void export() {
         if (!shouldExport()) {
             return;
@@ -191,7 +204,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
         checkAndUpdateSubConfigs();
 
-        //init serviceMetadata
+        //init serviceMetadata 初始化serviceMetadata
         serviceMetadata.setVersion(version);
         serviceMetadata.setGroup(group);
         serviceMetadata.setDefaultGroup(group);
@@ -199,6 +212,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         serviceMetadata.setServiceInterfaceName(getInterface());
         serviceMetadata.setTarget(getRef());
 
+        //延时暴露功能点
         if (shouldDelay()) {
             DELAY_EXPORT_EXECUTOR.schedule(this::doExport, getDelay(), TimeUnit.MILLISECONDS);
         } else {
@@ -207,20 +221,25 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     }
 
     private void checkAndUpdateSubConfigs() {
-        // Use default configs defined explicitly on global scope
+        //使用在全局作用域上显式定义的默认配置
+        //serverConfigBean中的方法
         completeCompoundConfigs();
+        //serverConfigBea 创建provider 用于描述这个链接的各种属性
         checkDefault();
+        //serverConfigBean 创建协议描述bean
         checkProtocol();
         // if protocol is not injvm checkRegistry
         if (!isOnlyInJvm()) {
             checkRegistry();
         }
+        //TODO 为当前类重新赋值？？？
         this.refresh();
 
         if (StringUtils.isEmpty(interfaceName)) {
             throw new IllegalStateException("<dubbo:service interface=\"\" /> interface not allow null!");
         }
 
+        //如果实现类是通用服务
         if (ref instanceof GenericService) {
             interfaceClass = GenericService.class;
             if (StringUtils.isEmpty(generic)) {
@@ -233,7 +252,9 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException(e.getMessage(), e);
             }
+            //TODO 重新构建serverConfigBean 底层属性
             checkInterfaceAndMethods(interfaceClass, getMethods());
+            // 检验接口和对象是否可以匹配
             checkRef();
             generic = Boolean.FALSE.toString();
         }
@@ -251,6 +272,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 throw new IllegalStateException("The local implementation class " + localClass.getName() + " not implement interface " + interfaceName);
             }
         }
+        //TODO 着一块有一点看不懂，所以要看serverConfigBean 中的内容了
         if (stub != null) {
             if ("true".equals(stub)) {
                 stub = interfaceName + "Stub";
@@ -286,14 +308,18 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         }
         doExportUrls();
 
-        // dispatch a ServiceConfigExportedEvent since 2.7.4
+        // dispatch a ServiceConfigExportedEvent since 2.7.4 发送服务暴露事件
         dispatch(new ServiceConfigExportedEvent(this));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void doExportUrls() {
+
+        //获取一个服务注册类
         ServiceRepository repository = ApplicationModel.getServiceRepository();
+        //获取一个一个服务描述类
         ServiceDescriptor serviceDescriptor = repository.registerService(getInterfaceClass());
+        //注册各种属性
         repository.registerProvider(
                 getUniqueServiceName(),
                 ref,
@@ -302,8 +328,10 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 serviceMetadata
         );
 
+        //TODO 大体上应该是初始化协议所对应的url地址 并且将各种协议属性拼接到rul中
         List<URL> registryURLs = ConfigValidationUtils.loadRegistries(this, true);
 
+        //TODO 看不懂 ，  我们使用了protocols的，大体上是生成了url地址和protocols地址来描述地址
         for (ProtocolConfig protocolConfig : protocols) {
             String pathKey = URL.buildKey(getContextPath(protocolConfig)
                     .map(p -> p + "/" + path)
@@ -316,6 +344,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         }
     }
 
+    //真正的暴露地址出去了
+    //TODO 一种猜测啊 protocl是服务注册地址 而 registry是服务间的通讯协议
     private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
         String name = protocolConfig.getName();
         if (StringUtils.isEmpty(name)) {
@@ -417,8 +447,12 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         //init serviceMetadata attachments
         serviceMetadata.getAttachments().putAll(map);
 
+        //TODO 上面这一托就是构建了一个属性map了
         // export service
+
+        //TODO  获取服务host地址 需要看一下怎么获取的
         String host = findConfigedHosts(protocolConfig, registryURLs, map);
+        //TODO 获取IP地址 需要看一下怎么获取的
         Integer port = findConfigedPorts(protocolConfig, name, map);
         URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);
 
@@ -524,7 +558,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
      * Register & bind IP address for service provider, can be configured separately.
      * Configuration priority: environment variables -> java system properties -> host property in config file ->
      * /etc/hosts -> default network address -> first available network address
-     *
+     *注册 + 绑定服务提供商的 IP 地址，可以单独配置。配置优先级：环境变量 -* java 系统属性 -* 配置文件中的主机属性 -* /etc/host -* 默认网络地址 -* 第一个可用网络地址
      * @param protocolConfig
      * @param registryURLs
      * @param map
@@ -534,7 +568,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                                      List<URL> registryURLs,
                                      Map<String, String> map) {
         boolean anyhost = false;
-
+        //TODO 获取协议默认地址
         String hostToBind = getValueFromConfig(protocolConfig, DUBBO_IP_TO_BIND);
         if (hostToBind != null && hostToBind.length() > 0 && isInvalidLocalHost(hostToBind)) {
             throw new IllegalArgumentException("Specified invalid bind ip from property:" + DUBBO_IP_TO_BIND + ", value:" + hostToBind);
@@ -691,7 +725,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
     /**
      * Dispatch an {@link Event event}
-     *
+     * 使用dubbo通用的EvebtDispatcher类类进行初始化操作
      * @param event an {@link Event event}
      * @since 2.7.5
      */

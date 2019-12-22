@@ -37,7 +37,6 @@ import javax.ws.rs.core.MediaType;
 @Produces({ContentType.APPLICATION_JSON_UTF_8, ContentType.TEXT_XML_UTF_8})
 @Api(value = "UserService")
 public interface UserService {
-
     @GET
     @Path("{id : \\d+}")
     @ApiOperation(value = "getUser")
