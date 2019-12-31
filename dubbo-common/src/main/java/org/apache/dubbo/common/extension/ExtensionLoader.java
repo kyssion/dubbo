@@ -122,7 +122,7 @@ public class ExtensionLoader<T> {
 
     private ExtensionLoader(Class<?> type) {
         this.type = type;
-        //注意这里默认使用了ExtensionFactory作为默认的ExtensionLoader加载器
+        //这里初始化 类实例化工厂方法， 默认使用ExtensionFactory实现
         objectFactory = (type == ExtensionFactory.class ? null : ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());
     }
 
@@ -567,6 +567,7 @@ public class ExtensionLoader<T> {
                         instance = createAdaptiveExtension();
                         cachedAdaptiveInstance.set(instance);
                     } catch (Throwable t) {
+                        //在这里初始化异常
                         createAdaptiveInstanceError = t;
                         throw new IllegalStateException("Failed to create adaptive instance: " + t.toString(), t);
                     }
