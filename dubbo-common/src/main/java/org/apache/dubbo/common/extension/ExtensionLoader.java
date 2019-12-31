@@ -615,11 +615,9 @@ public class ExtensionLoader<T> {
     }
 
     private T injectExtension(T instance) {
-
         if (objectFactory == null) {
             return instance;
         }
-
         try {
             for (Method method : instance.getClass().getMethods()) {
                 if (!isSetter(method)) {
@@ -635,7 +633,6 @@ public class ExtensionLoader<T> {
                 if (ReflectUtils.isPrimitives(pt)) {
                     continue;
                 }
-
                 try {
                     String property = getSetterProperty(method);
                     Object object = objectFactory.getExtension(pt, property);
