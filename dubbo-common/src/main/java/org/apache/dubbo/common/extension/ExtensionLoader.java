@@ -129,7 +129,7 @@ public class ExtensionLoader<T> {
     private static <T> boolean withExtensionAnnotation(Class<T> type) {
         return type.isAnnotationPresent(SPI.class);
     }
-
+    //类似初始化
     @SuppressWarnings("unchecked")
     public static <T> ExtensionLoader<T> getExtensionLoader(Class<T> type) {
         if (type == null) {
@@ -375,17 +375,6 @@ public class ExtensionLoader<T> {
         return cachedAdaptiveInstance.get();
     }
 
-//    public T getPrioritizedExtensionInstance() {
-//        Set<String> supported = getSupportedExtensions();
-//
-//        Set<T> instances = new HashSet<>();
-//        Set<T> prioritized = new HashSet<>();
-//        for (String s : supported) {
-//
-//        }
-//
-//    }
-
     /**
      * Find the extension with the given name. If the specified name is not found, then {@link IllegalStateException}
      * will be thrown.
@@ -515,7 +504,6 @@ public class ExtensionLoader<T> {
     @Deprecated
     public void replaceExtension(String name, Class<?> clazz) {
         getExtensionClasses(); // load classes
-
         if (!type.isAssignableFrom(clazz)) {
             throw new IllegalStateException("Input type " +
                     clazz + " doesn't implement Extension " + type);
@@ -524,7 +512,6 @@ public class ExtensionLoader<T> {
             throw new IllegalStateException("Input type " +
                     clazz + " can't be interface!");
         }
-
         if (!clazz.isAnnotationPresent(Adaptive.class)) {
             if (StringUtils.isBlank(name)) {
                 throw new IllegalStateException("Extension name is blank (Extension " + type + ")!");
@@ -533,7 +520,6 @@ public class ExtensionLoader<T> {
                 throw new IllegalStateException("Extension name " +
                         name + " doesn't exist (Extension " + type + ")!");
             }
-
             cachedNames.put(clazz, name);
             cachedClasses.get().put(name, clazz);
             cachedInstances.remove(name);
@@ -541,7 +527,6 @@ public class ExtensionLoader<T> {
             if (cachedAdaptiveClass == null) {
                 throw new IllegalStateException("Adaptive Extension doesn't exist (Extension " + type + ")!");
             }
-
             cachedAdaptiveClass = clazz;
             cachedAdaptiveInstance.set(null);
         }
@@ -558,7 +543,6 @@ public class ExtensionLoader<T> {
                         createAdaptiveInstanceError.toString(),
                         createAdaptiveInstanceError);
             }
-
             synchronized (cachedAdaptiveInstance) {
                 //再次获取, 预防兑现线程征用的时候出现的问题
                 instance = cachedAdaptiveInstance.get();
@@ -574,7 +558,6 @@ public class ExtensionLoader<T> {
                 }
             }
         }
-
         return (T) instance;
     }
 
@@ -585,14 +568,11 @@ public class ExtensionLoader<T> {
             }
         }
         StringBuilder buf = new StringBuilder("No such extension " + type.getName() + " by name " + name);
-
-
         int i = 1;
         for (Map.Entry<String, IllegalStateException> entry : exceptions.entrySet()) {
             if (i == 1) {
                 buf.append(", possible causes: ");
             }
-
             buf.append("\r\n(");
             buf.append(i++);
             buf.append(") ");
