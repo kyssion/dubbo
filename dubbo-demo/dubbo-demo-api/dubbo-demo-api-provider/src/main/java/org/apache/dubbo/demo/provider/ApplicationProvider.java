@@ -29,12 +29,14 @@ public class ApplicationProvider {
         ServiceConfig<DemoServiceImpl> service = new ServiceConfig<>();
         service.setInterface(DemoService.class);
         service.setRef(new DemoServiceImpl());
-
         DubboBootstrap bootstrap = DubboBootstrap.getInstance();
         bootstrap
+                //给内部的 configsCache 增加了一条 ApplicationConfig类型 -》 dubbo-demo-api-provider类型 -》 这个类的映射
                 .application(new ApplicationConfig("dubbo-demo-api-provider"))
                 .registry(new RegistryConfig("zookeeper://127.0.0.1:2181"))
+                //server 在dubbo中也是一种抽象
                 .service(service)
+                //这个逼玩意就是核心暴露的逻辑
                 .start()
                 .await();
     }

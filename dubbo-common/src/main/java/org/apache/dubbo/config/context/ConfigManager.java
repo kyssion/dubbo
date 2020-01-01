@@ -386,6 +386,7 @@ public class ConfigManager extends LifecycleAdapter implements FrameworkExt {
             return;
         }
         write(() -> {
+            //创建一个AbstractConfig短名称hashmap的映射关系 注意这个configCache，这个玩意应该缓存了所有的 AbstractConfig短名称和Map的映射关系
             Map<String, AbstractConfig> configsMap = configsCache.computeIfAbsent(getTagName(config.getClass()), type -> newMap());
             addIfAbsent(config, configsMap, unique);
         });
@@ -476,16 +477,18 @@ public class ConfigManager extends LifecycleAdapter implements FrameworkExt {
             return;
         }
 
-        if (unique) { // check duplicate
+        if (unique) { // check duplicate  屁用没有，同名的压根不合并
             configsMap.values().forEach(c -> {
                 checkDuplicate(c, config);
             });
         }
 
+        //这个地方 写的有问题啊 ， getId默认获取的石AbstrcatConfig 的getId方法，但是如果这个config是默认的（存在default方法并且返回true或者没有default犯法）就用类名简写+#+default表示
         String key = getId(config);
-
+        //TODO 这里有问题的key可能是null
         C existedConfig = configsMap.get(key);
 
+        //相同的名称覆盖
         if (existedConfig != null && !config.equals(existedConfig)) {
             if (logger.isWarnEnabled()) {
                 String type = config.getClass().getSimpleName();

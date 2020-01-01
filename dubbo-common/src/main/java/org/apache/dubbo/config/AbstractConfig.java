@@ -100,6 +100,7 @@ public abstract class AbstractConfig implements Serializable {
 
     public static String getTagName(Class<?> cls) {
         String tag = cls.getSimpleName();
+        //去掉所有名称后面的Config啥啥啥后缀
         for (String suffix : SUFFIXES) {
             if (tag.endsWith(suffix)) {
                 tag = tag.substring(0, tag.length() - suffix.length());
